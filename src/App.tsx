@@ -7,10 +7,11 @@ import {
 // Pages
 import OrdersManager from './pages/OrdersManager';
 import MenuManager from './pages/MenuManager';
+import CategoriesManager from './pages/CategoriesManager';
 import SettingsManager from './pages/SettingsManager';
 import DashboardHome from './pages/DashboardHome';
 import AnalyticsManager from './pages/AnalyticsManager';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Tag } from 'lucide-react';
 
 function Layout() {
   const [status, setStatus] = useState<any>(null);
@@ -58,6 +59,7 @@ function Layout() {
           <SidebarItem to="/" icon={<LayoutDashboard size={18} />} label="ภาพรวมระบบ" onClick={closeMenu} />
           <SidebarItem to="/orders" icon={<ShoppingBag size={18} />} label="จัดการออเดอร์" onClick={closeMenu} />
           <SidebarItem to="/menus" icon={<Database size={18} />} label="จัดการเมนูอาหาร" onClick={closeMenu} />
+          <SidebarItem to="/categories" icon={<Tag size={18} />} label="จัดการหมวดหมู่" onClick={closeMenu} />
           <SidebarItem to="/analytics" icon={<TrendingUp size={18} />} label="วิเคราะห์การขาย" onClick={closeMenu} />
           <div className="pt-6 mt-6 border-t border-slate-100">
             <SidebarItem to="/settings" icon={<Settings size={18} />} label="ตั้งค่าระบบ" onClick={closeMenu} />
@@ -112,6 +114,7 @@ export default function App() {
           <Route index element={<DashboardHome />} />
           <Route path="orders" element={<OrdersManager />} />
           <Route path="menus" element={<MenuManager />} />
+          <Route path="categories" element={<CategoriesManager />} />
           <Route path="analytics" element={<AnalyticsManager />} />
           <Route path="settings" element={<SettingsManager />} />
         </Route>

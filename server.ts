@@ -176,8 +176,14 @@ app.put('/api/menus/:id', async (req, res) => {
 });
 
 app.get('/api/orders', async (req, res) => {
-  const { data, error } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(50);
-  if (error) return res.status(500).json({ error: error.message });
+  const { data, error } = await supabase.from('orders').select('*, order_items(*)').order('created_at', { ascending: false }).limit(50);
+  if (error) {
+    if (error.code === 'PGRST200') { // relation doesn't exist? fallback
+      const { data: fallbackOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(50);
+      return res.json(fallbackOrders || []);
+    }
+    return res.status(500).json({ error: error.message });
+  }
   res.json(data);
 });
 

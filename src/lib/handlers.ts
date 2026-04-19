@@ -44,6 +44,7 @@ export async function handleTextMessage(userId: string, text: string, replyToken
     const aiResult = await getAIRecommendation(text, menuList);
     
     const recommended = menus.filter(m => (aiResult.menu_ids || []).includes(m.id));
+    const categories = Array.from(new Set(menus.flatMap(m => m.tags || []))).filter(Boolean);
     
     // Improved formatting with more line breaks
     let textReply = `✨ ${aiResult.intro}`;
@@ -56,12 +57,15 @@ export async function handleTextMessage(userId: string, text: string, replyToken
       textReply += `\n\n🍃 ${aiResult.tips}`;
     }
 
-    const messages: any[] = [
-      {
-        type: 'text',
-        text: textReply.trim(),
-      }
-    ];
+    const categoriesQuickReplies = categories.slice(0, 9).map(c => ({ label: String(c), action: 'message', data: `หน้าเมนู ${c}` }));
+    categoriesQuickReplies.push({ label: '🛒 ตะกร้าของฉัน', action: 'postback', data: 'action=view_cart' });
+
+    const textReplyMessage = flex.withQuickReplies(
+      { type: 'text', text: textReply.trim() },
+      categoriesQuickReplies as any
+    );
+
+    const messages: any[] = [textReplyMessage];
 
     if (recommended.length > 0) {
       messages.push(flex.buildMenuCarousel(recommended, 'เมนูยอดฮิตที่คุณอาจจะชอบค่ะ'));
@@ -122,6 +126,8 @@ export async function handlePostback(userId: string, data: string, replyToken: s
   switch (action) {
     case 'add_to_cart':
       return addToCart(userId, params.menu_id, parseInt(params.qty || '1'), replyToken);
+    case 'add_to_cart_quiet':
+      return addToCart(userId, params.menu_id, parseInt(params.qty || '1'), replyToken, true);
     case 'view_cart':
       return showCart(userId, replyToken);
     case 'checkout':
@@ -144,7 +150,11 @@ export async function handlePostback(userId: string, data: string, replyToken: s
 
 const userCarts: Record<string, { menuId: string, name: string, price: number, qty: number }[]> = {};
 
-async function addToCart(userId: string, menuId: string, qty: number, replyToken: string) {
+async function addToCart(userId: string, menuId: string, qty: number, replyToken: string, skipUpsell: boolean = false) {
+  try {
+    await lineClient.showLoadingAnimation({ chatId: userId, loadingSeconds: 15 });
+  } catch (e) {}
+
   const { data: menu, error: menuErr } = await supabase.from('menus').select('*').eq('id', menuId).single();
   const { data: menus, error: menusErr } = await supabase.from('menus').select('*').eq('available', true);
   
@@ -171,27 +181,45 @@ async function addToCart(userId: string, menuId: string, qty: number, replyToken
     userCarts[userId].push({ menuId, name: menu.name, price: menu.price, qty });
   }
 
-  // Get a quick drink/upsell suggestion from AI
-  const menuList = menus.map(m => `ID:${m.id} | ${m.name} | Tags:${m.tags?.join(',') || ''}`).join('\n');
-  const aiResult = await getAIRecommendation(`ลูกค้าเพิ่งสั่ง ${menu.name} ช่วยแนะนำเครื่องดื่มหรือของทานเล่นที่เข้ากับเมนูนี้สั้นๆ หน่อยค่ะ`, menuList);
+  // Generate Quick Replies
+  let replies = [
+    { label: 'ดูตะกร้า/ชำระเงิน', action: 'postback', data: 'action=view_cart' },
+    { label: 'สั่งเพิ่ม 🍽️', action: 'message', data: 'เมนู' }
+  ];
 
   let upsellText = `✅ เพิ่ม "${menu.name}" ลงตะกร้าแล้วค่ะ`;
-  if (aiResult.tips || aiResult.reason) {
-    upsellText += `\n\n💡 ${aiResult.reason || aiResult.tips}`;
+
+  // Get a quick drink/upsell suggestion from AI (only if it's not already an upsell)
+  if (!skipUpsell) {
+    const menuList = menus.map(m => `ID:${m.id} | ${m.name} | Tags:${m.tags?.join(',') || ''}`).join('\n');
+    try {
+      const aiResult = await getAIRecommendation(`ลูกค้าเพิ่งสั่ง ${menu.name} ช่วยแนะนำเครื่องดื่มหรือของทานเล่นที่เข้ากับเมนูนี้ 1 เมนู พร้อมระบุ upsell_menu_id ให้ชัดเจน`, menuList);
+      
+      if (aiResult.tips || aiResult.reason) {
+        upsellText += `\n\n💡 ${aiResult.reason || aiResult.tips}`;
+      }
+
+      if (aiResult.upsell_menu_id) {
+        const idMatch = aiResult.upsell_menu_id.match(/M\d+/);
+        if (idMatch) {
+          const upsellMenu = menus.find(m => m.id === idMatch[0]);
+          if (upsellMenu) {
+            replies.unshift({ 
+              label: `รับ ${upsellMenu.name.substring(0, 10)} (+฿${upsellMenu.price})`, 
+              action: 'postback', 
+              data: `action=add_to_cart_quiet&menu_id=${upsellMenu.id}&qty=1` 
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Upsell AI failed', e);
+    }
   }
 
   return lineClient.replyMessage({
     replyToken,
-    messages: [
-      flex.withQuickReplies(
-        { type: 'text', text: upsellText },
-        [
-          { label: 'ดูตะกร้า 🛒', action: 'postback', data: 'action=view_cart' },
-          { label: 'สั่งเพิ่ม 🍽️', action: 'message', data: 'เมนู' },
-          { label: 'ยืนยันสั่งซื้อ ✅', action: 'postback', data: 'action=checkout' }
-        ]
-      )
-    ]
+    messages: [flex.withQuickReplies({ type: 'text', text: upsellText }, replies as any)]
   });
 }
 
@@ -217,10 +245,10 @@ async function showCart(userId: string, replyToken: string) {
     replyToken,
     messages: [
       flex.withQuickReplies(
-        { type: 'text', text: `🛒 รายการในตะกร้าของคุณ\n━━━━━━━━━━━━━━\n\n${itemsText}\n\n🏷️ ยอดรวมสุทธิ: ฿${total}` },
+        { type: 'text', text: `📝 **สรุปรายการอาหารของคุณ**\n━━━━━━━━━━━━━━\n\n${itemsText}\n\n🏷️ ยอดรวมสุทธิ: ฿${total}\n\nรับอะไรเพิ่มอีกไหมคะ?` },
         [
-          { label: 'ยืนยันสั่งซื้อ ✅', action: 'postback', data: 'action=checkout' },
-          { label: 'สั่งเพิ่ม 🍽️', action: 'message', data: 'เมนู' }
+          { label: 'พอก่อน ชำระเงิน ✅', action: 'postback', data: 'action=checkout' },
+          { label: 'สั่งอาหารเพิ่ม 🍽️', action: 'message', data: 'เมนู' }
         ]
       )
     ]

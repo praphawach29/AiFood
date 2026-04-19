@@ -161,6 +161,7 @@ export default function OrdersManager() {
 }
 
 interface OrderCardProps {
+  key?: React.Key;
   order: any;
   onAdvance: () => void;
   buttonText: string;
@@ -180,10 +181,25 @@ function OrderCard({ order, onAdvance, buttonText, buttonColor, disabled = false
       
       <div className="mb-3">
         <p className="text-lg md:text-xl font-bold text-slate-800 mb-1">฿{order.total_amount}</p>
-        <p className="text-[11px] md:text-xs text-slate-500 line-clamp-2 leading-relaxed">
-          ไอดีลูกค้า: {order.line_user_id?.slice(0,10)}...<br/>
-          (ระบบออเดอร์จำลอง)
+        <p className="text-[11px] md:text-xs text-slate-500 line-clamp-1 mb-2">
+          ไอดีลูกค้า: {order.line_user_id?.slice(0,10)}...
         </p>
+
+        {order.order_items && order.order_items.length > 0 ? (
+          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+            <p className="text-[10px] md:text-xs font-semibold text-slate-600 mb-1 border-b border-slate-200 pb-1">ออเดอร์:</p>
+            <ul className="space-y-1">
+              {order.order_items.map((item: any, i: number) => (
+                <li key={i} className="text-[11px] md:text-xs flex justify-between">
+                  <span className="text-slate-700 truncate mr-2">{item.menu_name}</span>
+                  <span className="font-medium text-slate-600 shrink-0">x{item.quantity}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-[11px] md:text-xs text-slate-400 italic bg-slate-50 p-2 rounded-lg border border-slate-100">(ไม่ได้บันทึกรายการอาหารไว้)</p>
+        )}
       </div>
 
       <button 
