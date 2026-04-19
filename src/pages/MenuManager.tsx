@@ -13,9 +13,15 @@ export default function MenuManager() {
     try {
       const res = await fetch('/api/menus');
       const data = await res.json();
-      setMenus(data);
+      if (Array.isArray(data)) {
+        setMenus(data);
+      } else {
+        console.error('API returned an error:', data);
+        setMenus([]);
+      }
     } catch (err) {
-      console.error(err);
+      console.error('Fetch error:', err);
+      setMenus([]);
     } finally {
       setLoading(false);
     }

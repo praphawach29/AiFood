@@ -29,14 +29,20 @@ export default function OrdersManager() {
       const res = await fetch('/api/orders');
       const data = await res.json();
       
-      // Check for new orders to play sound
-      if (prevOrdersRef.current.length > 0 && prevOrdersRef.current.length < data.length) {
-        playPingSound();
+      if (Array.isArray(data)) {
+        // Check for new orders to play sound
+        if (prevOrdersRef.current.length > 0 && prevOrdersRef.current.length < data.length) {
+          playPingSound();
+        }
+        prevOrdersRef.current = data;
+        setOrders(data);
+      } else {
+        console.error('API returned an error:', data);
+        setOrders([]);
       }
-      prevOrdersRef.current = data;
-      setOrders(data);
     } catch (err) {
-      console.error(err);
+      console.error('Fetch error:', err);
+      setOrders([]);
     } finally {
       setLoading(false);
     }

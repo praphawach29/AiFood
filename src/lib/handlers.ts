@@ -33,7 +33,8 @@ export async function handleTextMessage(userId: string, text: string, replyToken
       console.warn('Failed to show loading animation:', e);
     }
 
-    const { data: menus } = await supabase.from('menus').select('*').eq('available', true);
+    const { data: menus, error: menuErr } = await supabase.from('menus').select('*').eq('available', true);
+    if (menuErr) throw new Error(`DB Error: ${menuErr.message}`);
     if (!menus) throw new Error('No menus found');
 
     const menuList = menus.map(m =>
@@ -68,11 +69,11 @@ export async function handleTextMessage(userId: string, text: string, replyToken
 
     // 2. Reply ONLY ONCE at the end of process
     return lineClient.replyMessage({ replyToken, messages });
-  } catch (err) {
-    console.error('AI Flow Error:', err);
+  } catch (err: any) {
+    console.error('AI Flow Error Detailed:', err);
     return lineClient.replyMessage({
       replyToken,
-      messages: [{ type: 'text', text: 'ขออภัยค่ะ ระบบแนะนำขัดข้องชั่วคราว ลองพิมพ์ว่า "เมนู" เพื่อดูอาหารทั้งหมดนะคะ' }]
+      messages: [{ type: 'text', text: `ขออภัยค่ะ ระบบแนะนำขัดข้องชั่วคราว\n(สาเหตุ: ${err?.message || 'Unknown'})` }]
     });
   }
 }
@@ -144,9 +145,16 @@ export async function handlePostback(userId: string, data: string, replyToken: s
 const userCarts: Record<string, { menuId: string, name: string, price: number, qty: number }[]> = {};
 
 async function addToCart(userId: string, menuId: string, qty: number, replyToken: string) {
-  const { data: menu } = await supabase.from('menus').select('*').eq('id', menuId).single();
-  const { data: menus } = await supabase.from('menus').select('*').eq('available', true);
+  const { data: menu, error: menuErr } = await supabase.from('menus').select('*').eq('id', menuId).single();
+  const { data: menus, error: menusErr } = await supabase.from('menus').select('*').eq('available', true);
   
+  if (menuErr || menusErr) {
+    return lineClient.replyMessage({
+      replyToken,
+      messages: [{ type: 'text', text: `ขออภัย เกิดข้อผิดพลาดกับฐานข้อมูล: ${menuErr?.message || menusErr?.message}` }]
+    });
+  }
+
   if (!menu || !menus) {
     return lineClient.replyMessage({
       replyToken,
