@@ -31,7 +31,7 @@ export async function getAIRecommendation(userMessage: string, menuList: string)
   let botPrompt = 'คุณคือพนักงานเสิร์ฟและผู้ช่วยแนะนำเมนูอาหารมืออาชีพประจำ "ร้านข้าวต้มนิดา"\\nบุคลิกของคุณ: สุภาพ เป็นมิตร กระตือรือร้น เต็มใจบริการ และมีความรู้เรื่องอาหารในร้านเป็นอย่างดี';
   let botGender = 'female';
   
-  let geminiModel = 'gemini-2.5-flash';
+  let geminiModel = 'gemini-1.5-flash';
   let anthropicModel = 'claude-3-5-sonnet-20240620';
 
   try {
