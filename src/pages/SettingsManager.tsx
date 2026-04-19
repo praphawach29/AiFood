@@ -234,12 +234,12 @@ export default function SettingsManager() {
               {settings.ai_provider === 'gemini' ? (
                 <select
                   name="gemini_model"
-                  value={settings.gemini_model || 'gemini-1.5-flash'}
+                  value={settings.gemini_model || 'gemini-3-flash-preview'}
                   onChange={handleChange}
                   className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-medium focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none bg-white shadow-sm"
                 >
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (รวดเร็ว คุ้มค่าที่สุด)</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro (ฉลาดและดึงข้อมูลซับซ้อนได้ดี)</option>
+                  <option value="gemini-3-flash-preview">Gemini 3 Flash (รวดเร็ว คุ้มค่าที่สุด)</option>
+                  <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (ฉลาดและดึงข้อมูลซับซ้อนได้ดี)</option>
                 </select>
               ) : (
                 <select

@@ -13,7 +13,13 @@ export interface AIRecommendation {
   tips: string | null;
 }
 
-const getGeminiClient = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const getGeminiClient = () => {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) {
+    throw new Error('GEMINI_API_KEY is missing in environment variables');
+  }
+  return new GoogleGenAI({ apiKey: key });
+};
 const getAnthropicClient = () => {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return null;
@@ -31,7 +37,7 @@ export async function getAIRecommendation(userMessage: string, menuList: string)
   let botPrompt = 'คุณคือพนักงานเสิร์ฟและผู้ช่วยแนะนำเมนูอาหารมืออาชีพประจำ "ร้านข้าวต้มนิดา"\\nบุคลิกของคุณ: สุภาพ เป็นมิตร กระตือรือร้น เต็มใจบริการ และมีความรู้เรื่องอาหารในร้านเป็นอย่างดี';
   let botGender = 'female';
   
-  let geminiModel = 'gemini-1.5-flash';
+  let geminiModel = 'gemini-3-flash-preview';
   let anthropicModel = 'claude-3-5-sonnet-20240620';
 
   try {
@@ -105,7 +111,7 @@ ${menuList}
 - ให้เลือก menu_ids มาสูงสุดแค่ 2 รายการเท่านั้น!`;
 
   // Map common user-friendly names to valid API IDs
-  let finalGeminiModel = (geminiModel || '').includes('pro') ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+  let finalGeminiModel = (geminiModel || '').includes('pro') ? 'gemini-3.1-pro-preview' : 'gemini-3-flash-preview';
   let finalAnthropicModel = anthropicModel || 'claude-3-5-sonnet-20240620';
 
   if (provider === 'anthropic') {
@@ -121,21 +127,27 @@ ${menuList}
 }
 
 async function callGemini(message: string, system: string, model: string, client: GoogleGenAI): Promise<AIRecommendation> {
-  const response = await client.models.generateContent({
-    model: model,
-    contents: [{ role: 'user', parts: [{ text: message }] }],
-    config: {
-      systemInstruction: system,
-      responseMimeType: "application/json",
-    }
-  });
-
   try {
-    const rawText = response.text.replace(/```json/gi, '').replace(/```/g, '').trim();
+    const response = await client.models.generateContent({
+      model: model,
+      contents: [{ role: 'user', parts: [{ text: message }] }],
+      config: {
+        systemInstruction: system,
+        responseMimeType: "application/json",
+      }
+    });
+
+    const rawText = (response.text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+    if (!rawText) {
+      console.error('Gemini returned empty text. Response:', JSON.stringify(response));
+      throw new Error('Empty AI response');
+    }
     return JSON.parse(rawText);
-  } catch (err) {
-    console.error('Gemini JSON Parse Error:', err, response.text);
-    throw new Error('AI Response Malformed');
+  } catch (err: any) {
+    console.error('Gemini Error:', err);
+    // Log more details if available
+    if (err.message) console.error('Error Message:', err.message);
+    throw err;
   }
 }
 

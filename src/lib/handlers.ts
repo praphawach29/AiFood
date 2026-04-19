@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { lineClient, supabase, lineBlobClient } from './clients';
 import { getAIRecommendation } from './ai';
 import * as flex from './flex';
@@ -17,8 +19,6 @@ export async function handleTextMessage(userId: string, text: string, replyToken
     // Load categories
     let globalCategories: string[] = [];
     try {
-      const fs = require('fs');
-      const path = require('path');
       const sPath = path.join(process.cwd(), 'settings.json');
       if (fs.existsSync(sPath)) {
         const s = JSON.parse(fs.readFileSync(sPath, 'utf-8'));
@@ -120,7 +120,7 @@ export async function handleTextMessage(userId: string, text: string, replyToken
     console.error('Text Flow Error:', err);
     return lineClient.replyMessage({
       replyToken,
-      messages: [{ type: 'text', text: 'ขออภายค่ะ ระบบขัดข้องชั่วคราว ลองพิมพ์ "สวัสดี" เพื่อเริ่มต้นใหม่นะคะ' }]
+      messages: [{ type: 'text', text: 'ขออภัยค่ะ ระบบขัดข้องชั่วคราว ลองพิมพ์ "สวัสดี" เพื่อเริ่มต้นใหม่นะคะ' }]
     });
   }
 }
@@ -341,9 +341,6 @@ async function payTransfer(userId: string, replyToken: string) {
   await createOrder(userId, replyToken, 'transfer', 'pending_payment', 
     `💳 รายละเอียดการโอนเงิน\n\n🏦 พร้อมเพย์: ${ppNum}\n👤 ชื่อบัญชี: ${ppName}\n\n📸 โอนแล้วอย่าลืมส่งสลิปมาให้แอดมินเช็กนะคะ!`);
 }
-
-import fs from 'fs';
-import path from 'path';
 
 async function createOrder(userId: string, replyToken: string, paymentMethod: string, status: string, customMessage?: string) {
   const cart = userCarts[userId] || [];

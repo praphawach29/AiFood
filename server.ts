@@ -59,7 +59,7 @@ function getSettings() {
   }
   return { 
     ai_provider: process.env.AI_PROVIDER || 'gemini',
-    gemini_model: 'gemini-2.5-flash',
+    gemini_model: 'gemini-3-flash-preview',
     anthropic_model: 'claude-3-5-sonnet-20240620',
     store_name: 'ร้านข้าวต้มนิดา',
     store_description: 'ร้านอาหารตามสั่งและก๋วยเตี๋ยวรสเด็ด',
@@ -320,26 +320,41 @@ app.post('/api/orders/:id/status', async (req, res) => {
   res.json({ success: true, data });
 });
 
-// Vite middleware setup
 async function setupVite() {
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+    console.log('🛠️ Setting up Vite in development mode...');
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.error('❌ Failed to start Vite:', e);
+    }
   } else {
+    console.log('📦 Running in production mode...');
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    } else {
+      console.error('❌ dist/ folder not found! Have you run npm build?');
+      app.get('*', (req, res) => {
+        res.status(500).send('Production build not found. Please run npm run build.');
+      });
+    }
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
-    console.log(`📡 Webhook URL: ${process.env.APP_URL || 'http://localhost:3000'}/webhook`);
-  });
 }
 
-setupVite().catch(console.error);
+// Start setup but don't block the listener
+setupVite().then(() => {
+  console.log('✅ Server middleware setup complete.');
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
+  console.log(`📡 Webhook URL: ${process.env.APP_URL || 'http://localhost:3000'}/webhook`);
+});
