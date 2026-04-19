@@ -29,13 +29,26 @@ export async function handleTextMessage(userId: string, text: string, replyToken
     } catch(e) {}
     const categories = globalCategories.length > 0 ? globalCategories : Array.from(new Set(menus.flatMap(m => m.tags || []))).filter(Boolean) as string[];
 
-    // Standard Quick Replies
+    // Standard Quick Replies with category fallback translation
     const getStandardQuickReplies = () => {
+      const tagMap: Record<string, string> = {
+        'spicy': 'รสจัดจ้าน', 'no-spicy': 'ไม่เผ็ด', 'seafood': 'อาหารทะเล', 
+        'vegan': 'มังสวิรัติ', 'popular': 'เมนูยอดฮิต', 'snack': 'ของทานเล่น',
+        'sweet': 'ของหวาน', 'beverage': 'เครื่องดื่ม', 'filling': 'อิ่มคุ้ม'
+      };
+
       const qr = [
-        { label: '📖 เมนูแนะนำ', action: 'message', data: 'แนะนำอาหารหน่อย' },
-        { label: '🛒 ตะกร้าของฉัน', action: 'postback', data: 'action=view_cart' },
-        { label: '🍴 เลือกหมวดหมู่', action: 'message', data: 'หมวดหมู่' }
+        { label: '🍴 เลือกหมวดหมู่', action: 'message', data: 'หมวดหมู่' },
+        { label: '📖 ดูเมนูทั้งหมด', action: 'message', data: 'เมนูทั้งหมด' },
+        { label: '⭐ ช่วยเลือกหน่อย', action: 'message', data: 'แนะนำอาหารหน่อย' },
+        { label: '🛒 ตะกร้าของฉัน', action: 'postback', data: 'action=view_cart' }
       ];
+
+      // Include top 4 categories
+      categories.slice(0, 4).forEach(c => {
+        const thaiName = tagMap[c.toLowerCase()] || c;
+        qr.push({ label: `🍴 ${thaiName}`, action: 'message', data: `หมวดหมู่ ${c}` });
+      });
       return qr;
     };
 
@@ -91,11 +104,16 @@ export async function handleTextMessage(userId: string, text: string, replyToken
     if (aiResult.tips) textReply += `\n\n🍃 ${aiResult.tips}`;
 
     const messages: any[] = [
-      flex.withQuickReplies({ type: 'text', text: textReply.trim() }, getStandardQuickReplies() as any)
+      { type: 'text', text: textReply.trim() }
     ];
+
     if (recommended.length > 0) {
-      messages.push(flex.buildMenuCarousel(recommended, 'เมนูที่เราอยากแนะนำคุณลูกค้าค่ะ'));
+      messages.push(flex.buildMenuCarousel(recommended, 'เมนูที่น่าจะถูกใจคุณลูกค้าค่ะ'));
     }
+
+    // Attach Quick Replies to the LAST message only (otherwise LINE hides them)
+    const lastIdx = messages.length - 1;
+    messages[lastIdx] = flex.withQuickReplies(messages[lastIdx], getStandardQuickReplies() as any);
 
     return lineClient.replyMessage({ replyToken, messages });
   } catch (err: any) {

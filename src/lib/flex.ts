@@ -86,8 +86,10 @@ export function buildMenuCarousel(menus: any[], altText: string) {
 
 export function buildOrderStatusCard(orderId: string, status: string, total: number) {
   const statusLabels: Record<string, string> = {
-    paid: 'ชำระเงินแล้ว',
-    pending_payment: 'รอการชำระเงิน'
+    paid: 'เตรียมอาหาร',
+    pending_payment: 'รอการชำระเงิน',
+    pending_kitchen: 'กำลังทำอาหาร',
+    completed: 'เสร็จสิ้นเรียบร้อย'
   };
 
   const message = {

@@ -11,7 +11,8 @@ import CategoriesManager from './pages/CategoriesManager';
 import SettingsManager from './pages/SettingsManager';
 import DashboardHome from './pages/DashboardHome';
 import AnalyticsManager from './pages/AnalyticsManager';
-import { TrendingUp, Tag } from 'lucide-react';
+import OrderHistory from './pages/OrderHistory';
+import { TrendingUp, Tag, History } from 'lucide-react';
 
 function Layout() {
   const [status, setStatus] = useState<any>(null);
@@ -68,6 +69,7 @@ function Layout() {
         <nav className="space-y-2 flex-grow mt-12 md:mt-0">
           <SidebarItem to="/" icon={<LayoutDashboard size={18} />} label="ภาพรวมระบบ" onClick={closeMenu} />
           <SidebarItem to="/orders" icon={<ShoppingBag size={18} />} label="จัดการออเดอร์" onClick={closeMenu} />
+          <SidebarItem to="/history" icon={<History size={18} />} label="ประวัติออเดอร์" onClick={closeMenu} />
           <SidebarItem to="/menus" icon={<Database size={18} />} label="จัดการเมนูอาหาร" onClick={closeMenu} />
           <SidebarItem to="/categories" icon={<Tag size={18} />} label="จัดการหมวดหมู่" onClick={closeMenu} />
           <SidebarItem to="/analytics" icon={<TrendingUp size={18} />} label="วิเคราะห์การขาย" onClick={closeMenu} />
@@ -123,6 +125,7 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<DashboardHome />} />
           <Route path="orders" element={<OrdersManager />} />
+          <Route path="history" element={<OrderHistory />} />
           <Route path="menus" element={<MenuManager />} />
           <Route path="categories" element={<CategoriesManager />} />
           <Route path="analytics" element={<AnalyticsManager />} />

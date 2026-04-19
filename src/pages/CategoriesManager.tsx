@@ -108,11 +108,13 @@ export default function CategoriesManager() {
 
   if (loading) return <div className="p-8 text-slate-500 text-sm">กำลังโหลดข้อมูลหมวดหมู่...</div>;
 
+  const uncategorizedMenus = menus.filter(m => !m.tags || m.tags.length === 0);
+
   return (
     <div className="w-full">
       <header className="mb-5 md:mb-8">
         <h2 className="text-xl md:text-2xl font-bold text-slate-800">จัดการหมวดหมู่อาหาร</h2>
-        <p className="text-[11px] md:text-sm text-slate-500 mt-0.5">แบ่งหมวดหมู่อาหาร ให้ลูกค้ากดค้นหาได้ง่ายขึ้นผ่านปุ่มตัวเลือก</p>
+        <p className="text-[11px] md:text-sm text-slate-500 mt-0.5">แบ่งหมวดหมู่อาหาร และตรวจสอบรายการอาหารในแต่ละหมวดหมู่</p>
       </header>
 
       {/* Global Categories Manager */}
@@ -168,70 +170,126 @@ export default function CategoriesManager() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {menus.map(m => (
-          <div key={m.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex justify-between items-start mb-2">
-                <h4 className="font-bold text-slate-800 text-sm line-clamp-1">{m.name}</h4>
-                <p className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded shrink-0">{m.id}</p>
+      <div className="space-y-8">
+        {availableCategories.map(category => {
+          const categoryMenus = menus.filter(m => m.tags?.includes(category));
+          return (
+            <section key={category} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-bold text-slate-800">{category}</h3>
+                  <span className="bg-indigo-100 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded-full">{categoryMenus.length} รายการ</span>
+                </div>
               </div>
-              
-              {editingMenuId === m.id ? (
-                <div className="bg-slate-50 p-2 rounded-lg border border-slate-200 mb-3">
-                  <p className="text-[10px] font-semibold text-slate-500 mb-2">เลือกหมวดหมู่:</p>
-                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto">
-                    {availableCategories.length === 0 && <p className="text-[10px] text-rose-500">กรุณาสร้างหมวดหมู่หลักก่อน</p>}
-                    {availableCategories.map(cat => {
-                      const isSelected = selectedTags.includes(cat);
-                      return (
-                        <button 
-                          key={cat}
-                          onClick={() => toggleTagForMenu(cat)}
-                          className={`px-2 py-1 rounded text-[10px] font-medium border transition-colors ${isSelected ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-300'}`}
-                        >
-                          {isSelected ? '✓ ' : ''}{cat}
-                        </button>
-                      );
-                    })}
+              <div className="p-4">
+                {categoryMenus.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {categoryMenus.map(m => (
+                      <MenuSmallCard 
+                        key={m.id} 
+                        menu={m} 
+                        isEditing={editingMenuId === m.id}
+                        selectedTags={selectedTags}
+                        availableCategories={availableCategories}
+                        onEdit={() => { setEditingMenuId(m.id); setSelectedTags(m.tags || []); }}
+                        onSave={() => saveMenuTags(m.id)}
+                        onCancel={() => setEditingMenuId(null)}
+                        onToggleTag={toggleTagForMenu}
+                      />
+                    ))}
                   </div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-1.5 mb-3 min-h-[24px]">
-                  {m.tags && m.tags.length > 0 ? (
-                    m.tags.map((t: string, i: number) => (
-                      <span key={i} className="bg-slate-100 border border-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px] md:text-xs">
-                        {t}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-[10px] md:text-xs text-slate-400 italic">ไม่ได้จัดหมวดหมู่</span>
-                  )}
-                </div>
-              )}
-            </div>
+                ) : (
+                  <p className="text-sm text-slate-400 italic text-center py-4">ไม่มีรายการอาหารในหมวดหมู่นี้</p>
+                )}
+              </div>
+            </section>
+          );
+        })}
 
-            <div>
-              {editingMenuId === m.id ? (
-                <div className="flex gap-2">
-                  <button onClick={() => saveMenuTags(m.id)} className="flex-1 bg-indigo-600 text-white py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 flex items-center justify-center gap-1">
-                    <Save size={14}/> บันทึก
+        {uncategorizedMenus.length > 0 && (
+          <section className="bg-white rounded-2xl border border-rose-100 overflow-hidden shadow-sm">
+            <div className="bg-rose-50/50 px-4 py-3 border-b border-rose-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <h3 className="font-bold text-rose-800 italic">เมนูที่ยังไม่ได้จัดหมวดหมู่</h3>
+                <span className="bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-full">{uncategorizedMenus.length} รายการ</span>
+              </div>
+            </div>
+            <div className="p-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {uncategorizedMenus.map(m => (
+                  <MenuSmallCard 
+                    key={m.id} 
+                    menu={m} 
+                    isEditing={editingMenuId === m.id}
+                    selectedTags={selectedTags}
+                    availableCategories={availableCategories}
+                    onEdit={() => { setEditingMenuId(m.id); setSelectedTags(m.tags || []); }}
+                    onSave={() => saveMenuTags(m.id)}
+                    onCancel={() => setEditingMenuId(null)}
+                    onToggleTag={toggleTagForMenu}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MenuSmallCard({ menu, isEditing, selectedTags, availableCategories, onEdit, onSave, onCancel, onToggleTag }: any) {
+  return (
+    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col h-full">
+      <div className="flex justify-between items-start mb-2">
+        <h4 className="font-bold text-slate-700 text-xs line-clamp-1">{menu.name}</h4>
+        <span className="text-[9px] text-slate-400 font-mono">#{menu.id}</span>
+      </div>
+
+      <div className="flex-1 mb-2">
+        {isEditing ? (
+          <div className="bg-white p-2 rounded-lg border border-slate-200 mb-1 max-h-32 overflow-y-auto">
+            <div className="flex flex-wrap gap-1">
+              {availableCategories.map((cat: string) => {
+                const isSel = selectedTags.includes(cat);
+                return (
+                  <button 
+                    key={cat}
+                    onClick={() => onToggleTag(cat)}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-medium border transition-colors ${isSel ? 'bg-indigo-100 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}
+                  >
+                    {isSel ? '✓ ' : ''}{cat}
                   </button>
-                  <button onClick={() => setEditingMenuId(null)} className="px-3 bg-slate-100 text-slate-600 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors">
-                    ยกเลิก
-                  </button>
-                </div>
-              ) : (
-                <button 
-                  onClick={() => { setEditingMenuId(m.id); setSelectedTags(m.tags || []); }}
-                  className="w-full flex items-center justify-center gap-1 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 py-1.5 rounded-lg transition-colors"
-                >
-                  <Edit2 size={12} /> จัดการหมวดหมู่
-                </button>
-              )}
+                );
+              })}
             </div>
           </div>
-        ))}
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {menu.tags && menu.tags.length > 0 ? (
+              menu.tags.map((t: string, i: number) => (
+                <span key={i} className="text-[9px] bg-white border border-slate-200 text-slate-500 px-1.5 py-0.5 rounded">
+                  {t}
+                </span>
+              ))
+            ) : (
+              <span className="text-[9px] text-slate-400 italic">ไม่มีหมวดหมู่</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-auto">
+        {isEditing ? (
+          <div className="flex gap-1">
+            <button onClick={onSave} className="flex-1 bg-indigo-600 text-white py-1 rounded text-[10px] font-bold hover:bg-indigo-700">บันทึก</button>
+            <button onClick={onCancel} className="px-2 bg-slate-200 text-slate-600 py-1 rounded text-[10px] font-bold">X</button>
+          </div>
+        ) : (
+          <button onClick={onEdit} className="w-full text-[10px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors py-1 bg-white border border-slate-200 rounded">
+            แก้ไขหมวดหมู่
+          </button>
+        )}
       </div>
     </div>
   );

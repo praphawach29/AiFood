@@ -4,6 +4,7 @@ import { ShoppingBag, Clock, CheckCircle2, DollarSign, ChefHat } from 'lucide-re
 export default function OrdersManager() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending', 'paid', 'completed' for mobile
   const prevOrdersRef = useRef<any[]>([]);
 
   const playPingSound = () => {
@@ -65,7 +66,7 @@ export default function OrdersManager() {
   };
 
   const pendingOrders = orders.filter(o => o.status === 'pending_payment');
-  const paidOrders = orders.filter(o => o.status === 'paid');
+  const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'pending_kitchen');
   const completedOrders = orders.filter(o => o.status === 'completed');
 
   const totalRevenue = orders.filter(o => o.status !== 'pending_payment').reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
@@ -75,7 +76,7 @@ export default function OrdersManager() {
   return (
     <div className="w-full h-[calc(100vh-100px)] md:h-[calc(100vh-80px)] flex flex-col">
       <header className="mb-4 md:mb-6 shrink-0">
-        <h2 className="text-xl md:text-2xl font-bold text-slate-800">จัดการออเดอร์ (Kanban Board)</h2>
+        <h2 className="text-xl md:text-2xl font-bold text-slate-800">จัดการออเดอร์</h2>
         <p className="text-[11px] md:text-sm text-slate-500 mt-0.5">ลากหรือกดเพื่อเปลี่ยนสถานะออเดอร์ มีเสียงเตือนเมื่อออเดอร์ใหม่เข้า</p>
       </header>
 
@@ -91,20 +92,42 @@ export default function OrdersManager() {
         </div>
         <div className="bg-white rounded-xl border border-amber-100 p-3 md:p-4 flex items-center gap-3 md:gap-4">
           <div className="bg-amber-50 text-amber-600 p-2 md:p-3 rounded-lg"><ChefHat size={20} className="w-4 h-4 md:w-5 md:h-5"/></div>
-          <div><p className="text-[10px] md:text-xs text-slate-500 font-semibold mb-0.5">กำลังเตรียม / ทำอาหาร</p><h4 className="text-lg md:text-xl font-bold text-amber-600">{paidOrders.length}</h4></div>
+          <div><p className="text-[10px] md:text-xs text-slate-500 font-semibold mb-0.5">กำลังทำความชำนาญ</p><h4 className="text-lg md:text-xl font-bold text-amber-600">{paidOrders.length}</h4></div>
         </div>
-        <div className="bg-white rounded-xl border border-emerald-100 p-3 md:p-4 flex items-center gap-3 md:gap-4">
+        <div className="bg-white rounded-xl border border-emerald-100 p-3 md:p-4 flex items-center gap-3 md:gap-4 border-l-4">
           <div className="bg-emerald-50 text-emerald-600 p-2 md:p-3 rounded-lg"><DollarSign size={20} className="w-4 h-4 md:w-5 md:h-5"/></div>
-          <div><p className="text-[10px] md:text-xs text-slate-500 font-semibold mb-0.5">รายได้รวม (ที่ชำระแล้ว)</p><h4 className="text-lg md:text-xl font-bold text-emerald-600">฿{totalRevenue}</h4></div>
+          <div><p className="text-[10px] md:text-xs text-slate-500 font-semibold mb-0.5">รายได้ยอดชำระแล้ว</p><h4 className="text-lg md:text-xl font-bold text-emerald-600">฿{totalRevenue}</h4></div>
         </div>
       </div>
 
+      {/* Mobile Tab Swiper (UI Only for mobile) */}
+      <div className="flex md:hidden bg-white border border-slate-200 rounded-xl mb-4 overflow-hidden p-1 shrink-0">
+        <button 
+          onClick={() => setActiveTab('pending')}
+          className={`flex-1 flex flex-col items-center py-2 rounded-lg transition-all ${activeTab === 'pending' ? 'bg-rose-50 text-rose-600 border border-rose-100 shadow-sm' : 'text-slate-400'}`}
+        >
+          <span className="text-[10px] font-bold">รอชำระ ({pendingOrders.length})</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('paid')}
+          className={`flex-1 flex flex-col items-center py-2 rounded-lg transition-all ${activeTab === 'paid' ? 'bg-amber-50 text-amber-600 border border-amber-100 shadow-sm' : 'text-slate-400'}`}
+        >
+          <span className="text-[10px] font-bold">กำลังทำ ({paidOrders.length})</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('completed')}
+          className={`flex-1 flex flex-col items-center py-2 rounded-lg transition-all ${activeTab === 'completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100 shadow-sm' : 'text-slate-400'}`}
+        >
+          <span className="text-[10px] font-bold">เสร็จ ({completedOrders.length})</span>
+        </button>
+      </div>
+
       {/* Kanban Board Container */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
-        <div className="flex gap-4 md:gap-6 h-full min-w-[800px] md:min-w-[900px]">
+      <div className="flex-1 overflow-x-auto md:overflow-x-auto overflow-y-hidden pb-4">
+        <div className="flex gap-4 md:gap-6 h-full min-w-full md:min-w-[900px]">
           
           {/* Column 1: Pending */}
-          <div className="flex-1 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden">
+          <div className={`${activeTab !== 'pending' ? 'hidden md:flex' : 'flex'} flex-1 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden`}>
             <div className="p-3 md:p-4 border-b border-slate-200 flex items-center justify-between bg-white/50 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-rose-500"></div>
@@ -121,7 +144,7 @@ export default function OrdersManager() {
           </div>
 
           {/* Column 2: Paid/Preparing */}
-          <div className="flex-1 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden">
+          <div className={`${activeTab !== 'paid' ? 'hidden md:flex' : 'flex'} flex-1 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden`}>
             <div className="p-3 md:p-4 border-b border-slate-200 flex items-center justify-between bg-white/50 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
@@ -138,7 +161,7 @@ export default function OrdersManager() {
           </div>
 
           {/* Column 3: Completed */}
-          <div className="flex-1 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden">
+          <div className={`${activeTab !== 'completed' ? 'hidden md:flex' : 'flex'} flex-1 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden`}>
             <div className="p-3 md:p-4 border-b border-slate-200 flex items-center justify-between bg-white/50 backdrop-blur-sm">
               <div className="flex items-center gap-2">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
