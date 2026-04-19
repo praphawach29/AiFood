@@ -1,0 +1,6 @@
+{
+  "name": "Nida Rice Porridge AI Bot",
+  "description": "An AI-powered LINE bot for a restaurant with recommendations, cart, and admin dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
