@@ -104,16 +104,20 @@ ${menuList}
 - ห้ามใช้หางเสียงผิดเพศ (ใช้ ${politeTail} เท่านั้น)
 - ให้เลือก menu_ids มาสูงสุดแค่ 2 รายการเท่านั้น!`;
 
+  // Map common user-friendly names to valid API IDs
+  let finalGeminiModel = (geminiModel || '').includes('pro') ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+  let finalAnthropicModel = anthropicModel || 'claude-3-5-sonnet-20240620';
+
   if (provider === 'anthropic') {
     const aiClient = getAnthropicClient();
     if (aiClient) {
-      return callClaude(userMessage, systemPrompt, anthropicModel, aiClient);
+      return callClaude(userMessage, systemPrompt, finalAnthropicModel, aiClient);
     }
     console.warn('Anthropic API Key missing, falling back to Gemini');
   }
   
   const aiClient = getGeminiClient();
-  return callGemini(userMessage, systemPrompt, geminiModel, aiClient);
+  return callGemini(userMessage, systemPrompt, finalGeminiModel, aiClient);
 }
 
 async function callGemini(message: string, system: string, model: string, client: GoogleGenAI): Promise<AIRecommendation> {
