@@ -9,43 +9,12 @@ export async function handleTextMessage(userId: string, text: string, replyToken
   const normalized = text.trim().toLowerCase();
   console.log(`[Text Handler] User: ${userId}, Text: ${text}`);
 
-  if (GREETINGS.some(g => normalized.includes(g))) {
-    return lineClient.replyMessage({
-      replyToken,
-      messages: [flex.buildWelcomeMessage()]
-    });
-  }
-
-  if (normalized.includes('ตะกร้า') || normalized.includes('cart')) {
-    return showCart(userId, replyToken);
-  }
-
-  // AI Recommendation
   try {
-    // 1. Show thinking indicator (Loading Animation)
-    // chat_id can be userId
-    try {
-      await lineClient.showLoadingAnimation({
-        chatId: userId,
-        loadingSeconds: 20 // Show for up to 20s or until a message is sent
-      });
-    } catch (e) {
-      console.warn('Failed to show loading animation:', e);
-    }
-
+    // 1. Fetch data
     const { data: menus, error: menuErr } = await supabase.from('menus').select('*').eq('available', true);
-    if (menuErr) throw new Error(`DB Error: ${menuErr.message}`);
-    if (!menus) throw new Error('No menus found');
+    if (menuErr || !menus) throw new Error('No menus found');
 
-    const menuList = menus.map(m =>
-      `ID:${m.id} | ${m.name} | ราคา ฿${m.price} | ${m.calories}kcal | เผ็ด:${m.spicy_level}/3 | เจ:${m.is_vegan} | tags:${m.tags?.join(',') || ''}`
-    ).join('\n');
-
-    const aiResult = await getAIRecommendation(text, menuList);
-    
-    const recommended = menus.filter(m => (aiResult.menu_ids || []).includes(m.id));
-    
-    // Attempt to load settings to get available_categories
+    // Load categories
     let globalCategories: string[] = [];
     try {
       const fs = require('fs');
@@ -58,41 +27,82 @@ export async function handleTextMessage(userId: string, text: string, replyToken
         }
       }
     } catch(e) {}
+    const categories = globalCategories.length > 0 ? globalCategories : Array.from(new Set(menus.flatMap(m => m.tags || []))).filter(Boolean) as string[];
 
-    const categories = globalCategories.length > 0 ? globalCategories : Array.from(new Set(menus.flatMap(m => m.tags || []))).filter(Boolean);
+    // Standard Quick Replies
+    const getStandardQuickReplies = () => {
+      const qr = [
+        { label: '📖 เมนูแนะนำ', action: 'message', data: 'แนะนำอาหารหน่อย' },
+        { label: '🛒 ตะกร้าของฉัน', action: 'postback', data: 'action=view_cart' },
+        { label: '🍴 เลือกหมวดหมู่', action: 'message', data: 'หมวดหมู่' }
+      ];
+      return qr;
+    };
+
+    // 2. Routing Logic
+    if (GREETINGS.some(g => normalized.includes(g)) && !normalized.includes('เมนูหมวด')) {
+      return lineClient.replyMessage({
+        replyToken,
+        messages: [flex.buildWelcomeMessage()]
+      });
+    }
+
+    if (normalized.includes('ตะกร้า') || normalized.includes('cart')) {
+      return showCart(userId, replyToken);
+    }
+
+    // Handle "Show Menu Category"
+    const catMatch = text.match(/^(หน้าเมนู|หมวดหมู่|เมนูหมวด)\s*(.*)$/);
+    if (catMatch || text === 'หมวดหมู่') {
+      const targetCategory = catMatch ? catMatch[2].trim() : '';
+      
+      if (!targetCategory || text === 'หมวดหมู่') {
+        const catReplies = categories.map(c => ({ label: String(c), action: 'message', data: `หมวดหมู่ ${c}` }));
+        catReplies.push({ label: '🏠 เมนูหลัก', action: 'message', data: 'สวัสดี' });
+        return lineClient.replyMessage({
+          replyToken,
+          messages: [flex.withQuickReplies({ type: 'text', text: 'เลือกหมวดหมู่ที่สนใจได้เลยค่ะ' }, catReplies.slice(0, 13) as any)]
+        });
+      }
+
+      const filtered = menus.filter(m => m.tags?.includes(targetCategory));
+      if (filtered.length > 0) {
+        return lineClient.replyMessage({
+          replyToken,
+          messages: [
+            { type: 'text', text: `รายการอาหารในหมวด "${targetCategory}" ค่ะ` },
+            flex.withQuickReplies(flex.buildMenuCarousel(filtered, `หมวด ${targetCategory}`), getStandardQuickReplies() as any)
+          ]
+        });
+      }
+    }
+
+    // 3. AI Recommendation Flow
+    try {
+      await lineClient.showLoadingAnimation({ chatId: userId, loadingSeconds: 20 });
+    } catch (e) {}
+
+    const menuList = menus.map(m => `ID:${m.id} | ${m.name} | ราคา ฿${m.price} | tags:${m.tags?.join(',') || ''}`).join('\n');
+    const aiResult = await getAIRecommendation(text, menuList);
+    const recommended = menus.filter(m => (aiResult.menu_ids || []).includes(m.id));
     
-    // Improved formatting with more line breaks
     let textReply = `✨ ${aiResult.intro}`;
-    
-    if (aiResult.reason && aiResult.reason.trim() !== '') {
-      textReply += `\n\n💡 ${aiResult.reason.replace(/\n/g, '\n\n')}`; // Double line breaks for readability
-    }
-    
-    if (aiResult.tips && aiResult.tips.trim() !== '') {
-      textReply += `\n\n🍃 ${aiResult.tips}`;
-    }
+    if (aiResult.reason) textReply += `\n\n💡 ${aiResult.reason.replace(/\n/g, '\n\n')}`;
+    if (aiResult.tips) textReply += `\n\n🍃 ${aiResult.tips}`;
 
-    const categoriesQuickReplies = categories.slice(0, 9).map(c => ({ label: String(c), action: 'message', data: `หน้าเมนู ${c}` }));
-    categoriesQuickReplies.push({ label: '🛒 ตะกร้าของฉัน', action: 'postback', data: 'action=view_cart' });
-
-    const textReplyMessage = flex.withQuickReplies(
-      { type: 'text', text: textReply.trim() },
-      categoriesQuickReplies as any
-    );
-
-    const messages: any[] = [textReplyMessage];
-
+    const messages: any[] = [
+      flex.withQuickReplies({ type: 'text', text: textReply.trim() }, getStandardQuickReplies() as any)
+    ];
     if (recommended.length > 0) {
-      messages.push(flex.buildMenuCarousel(recommended, 'เมนูยอดฮิตที่คุณอาจจะชอบค่ะ'));
+      messages.push(flex.buildMenuCarousel(recommended, 'เมนูที่เราอยากแนะนำคุณลูกค้าค่ะ'));
     }
 
-    // 2. Reply ONLY ONCE at the end of process
     return lineClient.replyMessage({ replyToken, messages });
   } catch (err: any) {
-    console.error('AI Flow Error Detailed:', err);
+    console.error('Text Flow Error:', err);
     return lineClient.replyMessage({
       replyToken,
-      messages: [{ type: 'text', text: `ขออภัยค่ะ ระบบแนะนำขัดข้องชั่วคราว\n(สาเหตุ: ${err?.message || 'Unknown'})` }]
+      messages: [{ type: 'text', text: 'ขออภายค่ะ ระบบขัดข้องชั่วคราว ลองพิมพ์ "สวัสดี" เพื่อเริ่มต้นใหม่นะคะ' }]
     });
   }
 }
@@ -198,8 +208,8 @@ async function addToCart(userId: string, menuId: string, qty: number, replyToken
 
   // Generate Quick Replies
   let replies = [
-    { label: 'ดูตะกร้า/ชำระเงิน', action: 'postback', data: 'action=view_cart' },
-    { label: 'สั่งเพิ่ม 🍽️', action: 'message', data: 'เมนู' }
+    { label: '🛒 ดูตะกร้า/ชำระเงิน', action: 'postback', data: 'action=view_cart' },
+    { label: '🍽️ สั่งอาหารเพิ่ม', action: 'message', data: 'หมวดหมู่' }
   ];
 
   let upsellText = `✅ เพิ่ม "${menu.name}" ลงตะกร้าแล้วค่ะ`;
@@ -246,8 +256,11 @@ async function showCart(userId: string, replyToken: string) {
       replyToken,
       messages: [
         flex.withQuickReplies(
-          { type: 'text', text: 'ตะกร้าว่างเปล่าค่ะ 🥺 ดูเมนูหน่อยไหมคะ?' },
-          [{ label: 'ดูเมนู', action: 'message' }]
+          { type: 'text', text: 'ตะกร้าว่างเปล่าค่ะ 🥺 ดูเมนูอาหารหน่อยไหมคะ?' },
+          [
+            { label: '📖 เมนูแนะนำ', action: 'message', data: 'แนะนำอาหารหน่อย' },
+            { label: '🍴 เลือกหมวดหมู่', action: 'message', data: 'หมวดหมู่' }
+          ] as any
         )
       ]
     });
@@ -263,7 +276,7 @@ async function showCart(userId: string, replyToken: string) {
         { type: 'text', text: `📝 **สรุปรายการอาหารของคุณ**\n━━━━━━━━━━━━━━\n\n${itemsText}\n\n🏷️ ยอดรวมสุทธิ: ฿${total}\n\nรับอะไรเพิ่มอีกไหมคะ?` },
         [
           { label: 'พอก่อน ชำระเงิน ✅', action: 'postback', data: 'action=checkout' },
-          { label: 'สั่งอาหารเพิ่ม 🍽️', action: 'message', data: 'เมนู' }
+          { label: 'สั่งอาหารเพิ่ม 🍽️', action: 'message', data: 'หมวดหมู่' }
         ]
       )
     ]
@@ -285,9 +298,10 @@ async function startCheckout(userId: string, replyToken: string) {
       flex.withQuickReplies(
         { type: 'text', text: '💰 เลือกวิธีที่สะดวกเพื่อชำระเงินได้เลยค่ะ' },
         [
-          { label: 'โอนเงิน', action: 'postback', data: 'action=pay_transfer' },
-          { label: 'เงินสด (หน้าร้าน)', action: 'postback', data: 'action=pay_cash' }
-        ]
+          { label: 'โอนผ่านบัญชี (Slip)', action: 'postback', data: 'action=pay_transfer' },
+          { label: 'ชำระเงินสด', action: 'postback', data: 'action=pay_cash' },
+          { label: 'สั่งเพิ่ม 🍽️', action: 'message', data: 'หมวดหมู่' }
+        ] as any
       )
     ]
   });
