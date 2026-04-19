@@ -69,7 +69,8 @@ function getSettings() {
     promptpay_number: '',
     promptpay_name: '',
     bot_gender: 'female',
-    bot_prompt: 'คุณคือพนักงานร้านอาหารมืออาชีพ (ไม่ใช่ AI และห้ามแทนตัวเองว่า AI) หน้าที่: 1.ให้บริการสุภาพเหมือนมนุษย์แท้ๆ 2.ตอบคำถามเรื่องวัตถุดิบและส่วนผสมโดยอิงจากข้อมูลเมนูของร้าน 3.หากลูกค้าตามอาหารหรือสอบถามออเดอร์ให้แจ้งอย่างเข้าใจว่าจะรับเรื่องเช็คกับทางครัวให้'
+    bot_prompt: 'คุณคือพนักงานร้านอาหารมืออาชีพ (ไม่ใช่ AI และห้ามแทนตัวเองว่า AI) หน้าที่: 1.ให้บริการสุภาพเหมือนมนุษย์แท้ๆ 2.ตอบคำถามเรื่องวัตถุดิบและส่วนผสมโดยอิงจากข้อมูลเมนูของร้าน 3.หากลูกค้าตามอาหารหรือสอบถามออเดอร์ให้แจ้งอย่างเข้าใจว่าจะรับเรื่องเช็คกับทางครัวให้',
+    available_categories: ['เมนูข้าว', 'เมนูเส้น', 'อาหารทานเล่น', 'เครื่องดื่ม']
   };
 }
 
@@ -173,6 +174,54 @@ app.put('/api/menus/:id', async (req, res) => {
   const { data, error } = await supabase.from('menus').update(updates).eq('id', id).select();
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true, data: data?.[0] });
+});
+
+app.post('/api/categories/rename', async (req, res) => {
+  const { oldName, newName } = req.body;
+  
+  // Update in settings
+  const s = getSettings();
+  let cats = s.available_categories || [];
+  if (cats.includes(oldName)) {
+    cats = cats.map(c => c === oldName ? newName : c);
+    s.available_categories = cats;
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf-8');
+  }
+
+  // Update in menus DB
+  const { data: menus } = await supabase.from('menus').select('id, tags').contains('tags', [oldName]);
+  if (menus) {
+    for (let m of menus) {
+      let tags = m.tags || [];
+      tags = tags.map((t: string) => t === oldName ? newName : t);
+      await supabase.from('menus').update({ tags }).eq('id', m.id);
+    }
+  }
+
+  res.json({ success: true, available_categories: cats });
+});
+
+app.post('/api/categories/delete', async (req, res) => {
+  const { categoryName } = req.body;
+  
+  // Update in settings
+  const s = getSettings();
+  let cats = s.available_categories || [];
+  cats = cats.filter(c => c !== categoryName);
+  s.available_categories = cats;
+  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf-8');
+
+  // Update in menus DB
+  const { data: menus } = await supabase.from('menus').select('id, tags').contains('tags', [categoryName]);
+  if (menus) {
+    for (let m of menus) {
+      let tags = m.tags || [];
+      tags = tags.filter((t: string) => t !== categoryName);
+      await supabase.from('menus').update({ tags }).eq('id', m.id);
+    }
+  }
+
+  res.json({ success: true, available_categories: cats });
 });
 
 app.get('/api/orders', async (req, res) => {

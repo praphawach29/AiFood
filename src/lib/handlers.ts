@@ -44,7 +44,22 @@ export async function handleTextMessage(userId: string, text: string, replyToken
     const aiResult = await getAIRecommendation(text, menuList);
     
     const recommended = menus.filter(m => (aiResult.menu_ids || []).includes(m.id));
-    const categories = Array.from(new Set(menus.flatMap(m => m.tags || []))).filter(Boolean);
+    
+    // Attempt to load settings to get available_categories
+    let globalCategories: string[] = [];
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const sPath = path.join(process.cwd(), 'settings.json');
+      if (fs.existsSync(sPath)) {
+        const s = JSON.parse(fs.readFileSync(sPath, 'utf-8'));
+        if (s.available_categories && Array.isArray(s.available_categories)) {
+          globalCategories = s.available_categories;
+        }
+      }
+    } catch(e) {}
+
+    const categories = globalCategories.length > 0 ? globalCategories : Array.from(new Set(menus.flatMap(m => m.tags || []))).filter(Boolean);
     
     // Improved formatting with more line breaks
     let textReply = `✨ ${aiResult.intro}`;

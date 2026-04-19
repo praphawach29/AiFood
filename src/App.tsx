@@ -15,6 +15,7 @@ import { TrendingUp, Tag } from 'lucide-react';
 
 function Layout() {
   const [status, setStatus] = useState<any>(null);
+  const [settings, setSettings] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -22,9 +23,16 @@ function Layout() {
       .then(res => res.json())
       .then(data => setStatus(data))
       .catch(err => console.error(err));
+
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => setSettings(data))
+      .catch(err => console.error(err));
   }, []);
 
   const closeMenu = () => setIsMobileMenuOpen(false);
+
+  const displayStoreName = settings?.store_name || 'นิดา';
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col md:flex-row">
@@ -34,7 +42,7 @@ function Layout() {
           <div className="bg-indigo-600 p-1.5 rounded-lg flex items-center justify-center shadow-inner">
             <Bot className="text-white w-4 h-4" />
           </div>
-          <h1 className="font-bold text-base tracking-tight text-slate-800">ระบบหลังบ้าน</h1>
+          <h1 className="font-bold text-base tracking-tight text-slate-800">หลังบ้าน {displayStoreName}</h1>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-1.5 bg-slate-50 text-slate-600 rounded-lg hover:bg-slate-100 border border-slate-100">
           {isMobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -52,7 +60,9 @@ function Layout() {
           <div className="bg-indigo-600 p-2 rounded-lg">
             <Bot className="text-white w-6 h-6" />
           </div>
-          <h1 className="font-bold text-xl tracking-tight text-slate-800">ระบบหลังบ้าน นิดา</h1>
+          <h1 className="font-bold text-xl tracking-tight text-slate-800 truncate" title={displayStoreName}>
+            ระบบหลังบ้าน {displayStoreName}
+          </h1>
         </div>
 
         <nav className="space-y-2 flex-grow mt-12 md:mt-0">

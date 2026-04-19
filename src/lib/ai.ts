@@ -24,6 +24,10 @@ export async function getAIRecommendation(userMessage: string, menuList: string)
   let provider = (process.env.AI_PROVIDER as AIChoice) || 'gemini';
   
   let storeName = 'ร้านข้าวต้มนิดา';
+  let storeDesc = '';
+  let openingHours = '';
+  let openingDays = '';
+  let isOpen = true;
   let botPrompt = 'คุณคือพนักงานเสิร์ฟและผู้ช่วยแนะนำเมนูอาหารมืออาชีพประจำ "ร้านข้าวต้มนิดา"\\nบุคลิกของคุณ: สุภาพ เป็นมิตร กระตือรือร้น เต็มใจบริการ และมีความรู้เรื่องอาหารในร้านเป็นอย่างดี';
   let botGender = 'female';
   
@@ -35,6 +39,10 @@ export async function getAIRecommendation(userMessage: string, menuList: string)
     if (fs.existsSync(SETTINGS_PATH)) {
       const s = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf-8'));
       if (s.store_name) storeName = s.store_name;
+      if (s.store_description) storeDesc = s.store_description;
+      if (s.opening_hours) openingHours = s.opening_hours;
+      if (s.opening_days) openingDays = s.opening_days.join(', ');
+      if (s.is_open !== undefined) isOpen = s.is_open;
       if (s.bot_prompt) botPrompt = s.bot_prompt;
       if (s.ai_provider) provider = s.ai_provider;
       if (s.gemini_model) geminiModel = s.gemini_model;
@@ -49,10 +57,20 @@ export async function getAIRecommendation(userMessage: string, menuList: string)
   
   const forbiddenParticles = botGender === 'female' ? maleParticles : botGender === 'male' ? femaleParticles : [];
 
+  const storeInfoText = `
+ข้อมูลร้านทำแหน่งของคุณ:
+- ชื่อร้าน: ${storeName}
+- คำอธิบายร้าน: ${storeDesc}
+- วันเวลาทำการ: ${openingDays} (${openingHours})
+- สถานะร้านตอนนี้: ${isOpen ? 'เปิดให้บริการปกติ' : 'ปิดให้บริการ مؤقتاً (โปรดแจ้งลูกค้าด้วยความสุภาพ)'}
+  `.trim();
+
   const systemPrompt = `คุณคือ "พนักงานต้อนรับผู้เชี่ยวชาญ" ของร้าน ${storeName} ที่มีหัวใจบริการเต็มร้อย
 บุคลิกภาพ: ${botPrompt}
 เพศ: ${botGender === 'female' ? 'ผู้หญิง (ค่ะ)' : botGender === 'male' ? 'ผู้ชาย (ครับ)' : 'เป็นกันเอง'}
 หางเสียงหลัก: "${politeTail}"
+
+${storeInfoText}
 
 ศิลปะการบริการของคุณ:
 1. **บริบทและเวลาจริง:** (ขณะนี้เวลา ${new Date().toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok' })}) ปรับการสนทนาตามเวลา เช่น เช้าทักทายสดใส, ดึกเสนอเมนูเบาท้อง หรือถ้าลูกค้าบ่นหิวให้แสดงความเห็นใจ
